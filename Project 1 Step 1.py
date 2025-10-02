@@ -1,7 +1,8 @@
 #Step 1
 import pandas as pd
 
-df = pd.read_csv("Project 1 Data")
+file_path = r'C:\Users\arman\OneDrive\Documents\GitHub\AER850_Project1\Project 1 Data.csv'
+df = pd.read_csv(file_path)
 
 print("Dataset shape:", df.shape)
 print("First 5 rows:")
