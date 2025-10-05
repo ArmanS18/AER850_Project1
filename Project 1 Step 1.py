@@ -2,6 +2,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score, precision_score, f1_score
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+import warnings
+warnings.filterwarnings("ignore")
 
 #Step 1------------------------------------------------------------------------
 
@@ -90,3 +99,104 @@ print("- High positive correlation (close to +1): Fetaures move together.")
 print("- High negative correlation (close to -1): One increases as the other decreases.")
 print("- Near 0: Features are weakly related.")
 print("- Stronger correaltion with 'step' means that t=feature is more predictive.")
+
+#Step 4------------------------------------------------------------------------
+
+#Data split into Train and Test
+
+X = df[features]
+y = df[target]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+print("Training set shape:", X_train.shape)
+print("Testing set shape:", X_test.shape)
+
+#Model 1: Support Vector Machine
+svm_pipeline = Pipeline([
+    ('scalar', StandardScaler()),
+    ('model', SVC())
+])
+
+svm_param_grid = {
+    'model__C': [0.1, 1, 10],
+    'model__kernel': ['linear', 'rbf', 'poly'],
+    'model__gamma': ['scale', 'auto']
+}
+
+svm_grid = GridSearchCV(svm_pipeline, svm_param_grid, cv=5,
+                        scoring='accuracy', n_jobs=-1, verbose=1)
+svm_grid.fit(X_train, y_train)
+
+print("\nBest aprameters for SVM:", svm_grid.best_params_)
+print("Best CV accuracy for SVM:", round(svm_grid.best_score_, 3))
+
+#Model 2: Random Forest
+rf_pipeline = Pipeline([
+    ('scalar', StandardScaler()),
+    ('model', RandomForestClassifier(random_state=42))
+])
+
+rf_param_grid = {
+    'model__n_estimators': [50, 100, 200],
+    'model__max_depth': [None, 5, 10, 20],
+    'model__min_samples_split': [2, 5, 10]
+}
+
+rf_grid = GridSearchCV(rf_pipeline, rf_param_grid, cv=5,
+                       scoring='accuracy', n_jobs=-1, verbose=1)
+rf_grid.fit(X_train, y_train)
+
+print("\nBest parameters for Random Forest:", rf_grid.best_params_)
+print("Best CV accuracy for RF:", round(rf_grid.best_score_, 3))
+
+#Model 3: K-Nearest Neighbours
+knn_pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('model', KNeighborsClassifier())
+])
+
+knn_param_grid = {
+    'model__n_neighbors': [3, 5, 7, 9],
+    'model__weights': ['uniform', 'distance'],
+    'model__metric': ['euclidean', 'manhattan']
+}
+
+knn_grid = GridSearchCV(knn_pipeline, knn_param_grid, cv=5,
+                        scoring='accuracy', n_jobs=-1, verbose=1)
+knn_grid.fit(X_train, y_train)
+
+print("\nBest parameters for KNN:", knn_grid.best_params_)
+print("Best CV accuracy for KNN:", round(knn_grid.best_score_, 3))
+
+#RandomizedSearchCV Model
+rf_random = RandomizedSearchCV(
+    rf_pipeline,
+    rf_param_grid,
+    n_iter=5,
+    cv=5,
+    scoring='accuracy',
+    n_jobs=-1,
+    random_state=42,
+    verbose=1
+)
+rf_random.fit(X_train, y_train)
+print("\nRandomizedSearchCV best RF params:", rf_random.best_params_)
+print("RandomizedSearchCV best RF accuracy:", round(rf_random.best_score_, 3))
+
+#All Model Evaluation
+models = {
+    "SVM": svm_grid.best_estimator_,
+    "Random Forest": rf_grid.best_estimator_,
+    "KNN": knn_grid.best_estimator_,
+    "RF Randomized": rf_random.best_estimator_
+}
+
+print("\nModel Performance on Test Data:")
+for name, model in models.items():
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+    f1 = f1_score(y_test, y_pred, average='weighted')
+    print(f"{name:15s} | Accuracy: {acc:.3f} | Precision: {prec:.3f} | F1: {f1:.3f}")
