@@ -7,8 +7,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, precision_score, f1_score, confusion_matrix, classification_report
 from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, StackingClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
 import warnings
 from sklearn.tree import DecisionTreeClassifier 
 warnings.filterwarnings("ignore")
@@ -212,18 +213,8 @@ for name, model in models.items():
         "F1 Score": f1
     })
 
-#Dataframe conversion then visual comparison
+#Dataframe conversion
 results_df = pd.DataFrame(results)
-print("\n===== Model Performance Comparison =====")
-print(results_df.round(3))
-plt.figure(figsize=(8, 5))
-sns.barplot(
-    data=results_df.melt(id_vars="Model", var_name="Metric", value_name="Score"),
-    x="Model", y="Score", hue="Metric"
-)
-plt.title("Model Comparison: Accuracy, Precision, and F1 Score")
-plt.ylim(0, 1)
-plt.show()
 
 #Best Model:
 best_model_name = results_df.loc[results_df['F1 Score'].idxmax(), 'Model']
@@ -244,6 +235,86 @@ plt.show()
 print("\nClassification Report for Best Model:\n")
 print(classification_report(y_test, y_pred_best))
 
-
 #Step 6------------------------------------------------------------------------
 
+estimators = [
+    ('svm', svm_grid.best_estimator_),
+    ('knn', knn_grid.best_estimator_)
+]
+
+#Logistic Regression
+stacking_model = StackingClassifier(
+    estimators=estimators,
+    final_estimator=LogisticRegression(max_iter=1000, random_state=42),
+    passthrough=False,
+    n_jobs=-1
+)
+
+#Train & Predict
+stacking_model.fit(X_train, y_train)
+y_pred_stack = stacking_model.predict(X_test)
+
+#Stacked Model Evaluation
+stack_acc = accuracy_score(y_test, y_pred_stack)
+stack_prec = precision_score(y_test, y_pred_stack, average='weighted', zero_division=0)
+stack_f1 = f1_score(y_test, y_pred_stack, average='weighted')
+
+print("\n===== Stacked Model Evaluation =====")
+print(f"Accuracy : {stack_acc:.3f}")
+print(f"Precision: {stack_prec:.3f}")
+print(f"F1 Score : {stack_f1:.3f}")
+print("\nClassification Report:\n", classification_report(y_test, y_pred_stack))
+
+#CM fo rstacked model
+cm = confusion_matrix(y_test, y_pred_stack)
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title("Stacked Model Confusion Matrix (SVM + KNN)")
+plt.xlabel("Predicted Label")
+plt.ylabel("Actual Label")
+plt.show()
+
+#Stacking vs Base
+models = {
+    "SVM (Best Grid Search)": svm_grid.best_estimator_,
+    "KNN (Best Grid Search)": knn_grid.best_estimator_,
+    "Random Forest (Best Grid Search)": rf_grid.best_estimator_,
+    "Stacked (SVM + KNN)": stacking_model
+}
+
+results = []
+for name, model in models.items():
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+    f1 = f1_score(y_test, y_pred, average='weighted')
+    results.append({"Model": name, "Accuracy": acc, "Precision": prec, "F1 Score": f1})
+
+results_df = pd.DataFrame(results)
+print("\n===== Model Performance Comparison =====")
+print(results_df.round(3))
+
+#Visualisation and Interpretation
+
+plt.figure(figsize=(9, 5))
+sns.barplot(
+    data=results_df.melt(id_vars="Model", var_name="Metric", value_name="Score"),
+    x="Model", y="Score", hue="Metric"
+)
+plt.title("Model Comparison: Accuracy, Precision, and F1 Score (Including Stacked Model)")
+plt.ylim(0, 1)
+plt.show()
+
+print("\n===== Interpretation =====")
+best_stack = results_df.loc[results_df['Model'] == 'Stacked (SVM + KNN)']
+best_base  = results_df.loc[results_df['Model'] != 'Stacked (SVM + KNN)']['Accuracy'].max()
+
+if stack_acc > best_base:
+    print("✔ The stacked model improved overall performance.")
+    print("   Combining SVM and KNN allowed the meta-learner to leverage")
+    print("   SVM’s margin-based precision and KNN’s local pattern detection,")
+    print("   resulting in a higher overall F1 and accuracy.")
+else:
+    print("⚠ The stacking model did not significantly outperform the base models.")
+    print("   This suggests the base models captured similar feature relationships,")
+    print("   so stacking provided limited additional benefit.")
