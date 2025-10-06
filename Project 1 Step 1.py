@@ -12,6 +12,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 import warnings
 from sklearn.tree import DecisionTreeClassifier 
+import joblib
 warnings.filterwarnings("ignore")
 
 #Step 1------------------------------------------------------------------------
@@ -303,7 +304,6 @@ sns.barplot(
 )
 plt.title("Model Comparison: Accuracy, Precision, and F1 Score (Including Stacked Model)")
 plt.ylim(0, 1)
-plt.show()
 
 print("\n===== Interpretation =====")
 best_stack = results_df.loc[results_df['Model'] == 'Stacked (SVM + KNN)']
@@ -318,3 +318,29 @@ else:
     print("⚠ The stacking model did not significantly outperform the base models.")
     print("   This suggests the base models captured similar feature relationships,")
     print("   so stacking provided limited additional benefit.")
+    
+#Step 7------------------------------------------------------------------------
+
+final_model = stacking_model
+#Save model
+joblib.dump(final_model, "best_model.joblib")
+print("\nModel saved successfully as 'best_model.joblib'")
+
+#Load model
+loaded_model = joblib.load("best_model.joblib")
+print("model loaded successfully")
+
+#Provided Coordinate Predictions
+new_data = np.array([
+    [9.375, 3.0625, 1.51],
+    [6.995, 5.125, 0.3875],
+    [0, 3.0625, 1.93],
+    [9.4, 3, 1.8],
+    [9.4, 3, 1.3]
+])
+
+predictions = loaded_model.predict(new_data)
+
+print("\n===== Predictions for Given Coordinates =====")
+for coords, pred in zip(new_data, predictions):
+    print(f"Coordinates {coords} --> Predicted Maintenance Step: {pred}")
