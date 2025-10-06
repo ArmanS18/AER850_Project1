@@ -2,16 +2,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV, cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, precision_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, f1_score, confusion_matrix, classification_report
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 import warnings
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier 
 warnings.filterwarnings("ignore")
 
 #Step 1------------------------------------------------------------------------
@@ -187,7 +186,9 @@ rf_random.fit(X_train, y_train)
 print("\nRandomizedSearchCV best RF params:", rf_random.best_params_)
 print("RandomizedSearchCV best RF accuracy:", round(rf_random.best_score_, 3))
 
-#All Model Evaluation
+#Step 5------------------------------------------------------------------------
+
+#Model Evaluation
 models = {
     "SVM": svm_grid.best_estimator_,
     "Random Forest": rf_grid.best_estimator_,
@@ -195,59 +196,54 @@ models = {
     "RF Randomized": rf_random.best_estimator_
 }
 
-print("\nModel Performance on Test Data:")
+#Results:
+results = []
+
 for name, model in models.items():
     y_pred = model.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
-    prec = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+    prec = precision_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
-    print(f"{name:15s} | Accuracy: {acc:.3f} | Precision: {prec:.3f} | F1: {f1:.3f}")
+    
+    results.append({
+        "Model": name,
+        "Accuracy": acc,
+        "Precision": prec,
+        "F1 Score": f1
+    })
 
-#Step 5------------------------------------------------------------------------
-
-best_svm = svm_grid.best_estimator_
-y_pred_svm = best_svm.predict(X_test)
-
-print("\n===== SVM Model Evaluation =====")
-print("Best Parameters:", svm_grid.best_params_)
-print("Test Accuracy:", round(accuracy_score(y_test, y_pred_svm), 3))
-print("\nClassification Report:\n", classification_report(y_test, y_pred_svm))
-print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred_svm))
-
-#Decision Tree
-dt_pipeline = Pipeline([
-    ('scaler', StandardScaler()),
-    ('model', DecisionTreeClassifier(random_state=42))
-])
-dt_pipeline.fit(X_train, y_train)
-y_pred_dt = dt_pipeline.predict(X_test)
-
-#Random Forest
-rf_pipeline = Pipeline([
-    ('scaler', StandardScaler()),
-    ('model', RandomForestClassifier(n_estimators=100, random_state=42))
-])
-rf_pipeline.fit(X_train, y_train)
-y_pred_rf = rf_pipeline.predict(X_test)
-
-#Evaluatoin of both
-print("\n===== Decision Tree Evaluation =====")
-print("Test Accuracy:", round(accuracy_score(y_test, y_pred_dt), 3))
-print("\nClassification Report:\n", classification_report(y_test, y_pred_dt))
-
-print("\n===== Random Forest Evaluation =====")
-print("Test Accuracy:", round(accuracy_score(y_test, y_pred_rf), 3))
-print("\nClassification Report:\n", classification_report(y_test, y_pred_rf))
-
-#Comparison Summary
-print("\n===== Model Accuracy Comparison =====")
-print("SVM Accuracy:           ", round(accuracy_score(y_test, y_pred_svm), 3))
-print("Decision Tree Accuracy: ", round(accuracy_score(y_test, y_pred_dt), 3))
-print("Random Forest Accuracy: ", round(accuracy_score(y_test, y_pred_rf), 3))
-
-#Confusion Matrix Visualisation)
-sns.heatmap(confusion_matrix(y_test, y_pred_svm), annot=True, fmt='d', cmap='Blues')
-plt.title("SVM Confusion Matrix")
-plt.xlabel("Predicted")
-plt.ylabel("Actual")
+#Dataframe conversion then visual comparison
+results_df = pd.DataFrame(results)
+print("\n===== Model Performance Comparison =====")
+print(results_df.round(3))
+plt.figure(figsize=(8, 5))
+sns.barplot(
+    data=results_df.melt(id_vars="Model", var_name="Metric", value_name="Score"),
+    x="Model", y="Score", hue="Metric"
+)
+plt.title("Model Comparison: Accuracy, Precision, and F1 Score")
+plt.ylim(0, 1)
 plt.show()
+
+#Best Model:
+best_model_name = results_df.loc[results_df['F1 Score'].idxmax(), 'Model']
+print(f"\nBest-performing model based on F1 Score: {best_model_name}")
+
+best_model = models[best_model_name]
+y_pred_best = best_model.predict(X_test)
+
+#Confusion Matrix
+cm = confusion_matrix(y_test, y_pred_best)
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title(f"{best_model_name} Confusion Matrix")
+plt.xlabel("Predicted Label")
+plt.ylabel("Actual Label")
+plt.show()
+
+print("\nClassification Report for Best Model:\n")
+print(classification_report(y_test, y_pred_best))
+
+
+#Step 6------------------------------------------------------------------------
+
