@@ -10,6 +10,8 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 import warnings
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.tree import DecisionTreeClassifier
 warnings.filterwarnings("ignore")
 
 #Step 1------------------------------------------------------------------------
@@ -200,3 +202,52 @@ for name, model in models.items():
     prec = precision_score(y_test, y_pred, average='weighted', zero_division=0)
     f1 = f1_score(y_test, y_pred, average='weighted')
     print(f"{name:15s} | Accuracy: {acc:.3f} | Precision: {prec:.3f} | F1: {f1:.3f}")
+
+#Step 5------------------------------------------------------------------------
+
+best_svm = svm_grid.best_estimator_
+y_pred_svm = best_svm.predict(X_test)
+
+print("\n===== SVM Model Evaluation =====")
+print("Best Parameters:", svm_grid.best_params_)
+print("Test Accuracy:", round(accuracy_score(y_test, y_pred_svm), 3))
+print("\nClassification Report:\n", classification_report(y_test, y_pred_svm))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred_svm))
+
+#Decision Tree
+dt_pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('model', DecisionTreeClassifier(random_state=42))
+])
+dt_pipeline.fit(X_train, y_train)
+y_pred_dt = dt_pipeline.predict(X_test)
+
+#Random Forest
+rf_pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('model', RandomForestClassifier(n_estimators=100, random_state=42))
+])
+rf_pipeline.fit(X_train, y_train)
+y_pred_rf = rf_pipeline.predict(X_test)
+
+#Evaluatoin of both
+print("\n===== Decision Tree Evaluation =====")
+print("Test Accuracy:", round(accuracy_score(y_test, y_pred_dt), 3))
+print("\nClassification Report:\n", classification_report(y_test, y_pred_dt))
+
+print("\n===== Random Forest Evaluation =====")
+print("Test Accuracy:", round(accuracy_score(y_test, y_pred_rf), 3))
+print("\nClassification Report:\n", classification_report(y_test, y_pred_rf))
+
+#Comparison Summary
+print("\n===== Model Accuracy Comparison =====")
+print("SVM Accuracy:           ", round(accuracy_score(y_test, y_pred_svm), 3))
+print("Decision Tree Accuracy: ", round(accuracy_score(y_test, y_pred_dt), 3))
+print("Random Forest Accuracy: ", round(accuracy_score(y_test, y_pred_rf), 3))
+
+#Confusion Matrix Visualisation)
+sns.heatmap(confusion_matrix(y_test, y_pred_svm), annot=True, fmt='d', cmap='Blues')
+plt.title("SVM Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
