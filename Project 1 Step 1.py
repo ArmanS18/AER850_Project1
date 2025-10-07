@@ -12,6 +12,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 import warnings
 from sklearn.tree import DecisionTreeClassifier 
+from mpl_toolkits.mplot3d import Axes3D
 import joblib
 warnings.filterwarnings("ignore")
 
@@ -29,7 +30,7 @@ print(df.info())
 df = df.dropna().reset_index(drop=True)
 print("\nMissing values:")
 print(df.isnull().sum())
-print("\mData shape after dropping missing values:", df.shape)
+print("\nData shape after dropping missing values:", df.shape)
 
 #Step 2------------------------------------------------------------------------
 
@@ -42,7 +43,7 @@ target = 'Step'
 
 #Histogram
 df[features].hist(figsize=(10, 6), bins=20)
-plt.suptitle("Fetaure Distribution", fontsize=14)
+plt.suptitle("Feature Distribution", fontsize=14)
 plt.show()
 
 #Boxplots
@@ -57,6 +58,19 @@ plt.show()
 #Pairplot
 sns.pairplot(df, hue=target, vars=features, palette="Set2", diag_kind='hist')
 plt.suptitle("Pairwise Feature Relationship by Step", y=1.02)
+plt.show()
+
+#3D Scatter plot
+fig = plt.figure(figsize=(8, 6))
+ax = fig.add_subplot(111, projection='3d')
+
+sc = ax.scatter(df['X'], df['Y'], df['Z'], c=df['Step'], cmap='viridis', s=50, alpha=0.8)
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+ax.set_title('3D Visualisation of Feature Space by Maintenance Step')
+
+plt.colorbar(sc, ax=ax, label='Step')
 plt.show()
 
 #Class Balance
@@ -93,7 +107,7 @@ print(corr_with_target[target])
 
 plt.figure(figsize=(6, 4))
 sns.heatmap(corr_with_target, annot=True, cmap="coolwarm", fmt=".2f")
-plt.title("Correlation of Features with Targt (Step)")
+plt.title("Correlation of Features with Target (Step)")
 plt.show()
 
 #Interpretation
@@ -118,7 +132,7 @@ print("Testing set shape:", X_test.shape)
 
 #Model 1: Support Vector Machine
 svm_pipeline = Pipeline([
-    ('scalar', StandardScaler()),
+    ('scaler', StandardScaler()),
     ('model', SVC())
 ])
 
@@ -137,7 +151,7 @@ print("Best CV accuracy for SVM:", round(svm_grid.best_score_, 3))
 
 #Model 2: Random Forest
 rf_pipeline = Pipeline([
-    ('scalar', StandardScaler()),
+    ('scaler', StandardScaler()),
     ('model', RandomForestClassifier(random_state=42))
 ])
 
@@ -239,7 +253,7 @@ print(classification_report(y_test, y_pred_best))
 #Step 6------------------------------------------------------------------------
 
 estimators = [
-    ('svm', svm_grid.best_estimator_),
+    ('rf', rf_grid.best_estimator_),
     ('knn', knn_grid.best_estimator_)
 ]
 
@@ -270,7 +284,7 @@ print("\nClassification Report:\n", classification_report(y_test, y_pred_stack))
 cm = confusion_matrix(y_test, y_pred_stack)
 plt.figure(figsize=(6, 5))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-plt.title("Stacked Model Confusion Matrix (SVM + KNN)")
+plt.title("Stacked Model Confusion Matrix (rf + KNN)")
 plt.xlabel("Predicted Label")
 plt.ylabel("Actual Label")
 plt.show()
@@ -280,7 +294,7 @@ models = {
     "SVM (Best Grid Search)": svm_grid.best_estimator_,
     "KNN (Best Grid Search)": knn_grid.best_estimator_,
     "Random Forest (Best Grid Search)": rf_grid.best_estimator_,
-    "Stacked (SVM + KNN)": stacking_model
+    "Stacked (rf + KNN)": stacking_model
 }
 
 results = []
@@ -311,7 +325,7 @@ best_base  = results_df.loc[results_df['Model'] != 'Stacked (SVM + KNN)']['Accur
 
 if stack_acc > best_base:
     print("✔ The stacked model improved overall performance.")
-    print("   Combining SVM and KNN allowed the meta-learner to leverage")
+    print("   Combining rf and KNN allowed the meta-learner to leverage")
     print("   SVM’s margin-based precision and KNN’s local pattern detection,")
     print("   resulting in a higher overall F1 and accuracy.")
 else:
@@ -321,7 +335,7 @@ else:
     
 #Step 7------------------------------------------------------------------------
 
-final_model = stacking_model
+final_model = svm_grid.best_estimator_
 #Save model
 joblib.dump(final_model, "best_model.joblib")
 print("\nModel saved successfully as 'best_model.joblib'")
